@@ -143,11 +143,6 @@ impl<'a> Tokenizer<'a> {
             return Err("parse_string: first character is not '\"'");
         }
 
-        if self.chars.peek() == Some(&'\"') {
-            self.take_char();
-            return Ok("");
-        }
-
         let start_idx = self.offset;
         while let Some(ch) = self.take_char() {
             match ch {
@@ -180,9 +175,6 @@ impl<'a> Tokenizer<'a> {
         let start_idx = self.offset;
         while let Some(ch) = self.chars.peek() {
             if !utils::is_tchar(*ch) && ch != &':' && ch != &'/' {
-                if start_idx == self.offset {
-                    return Ok("");
-                }
                 return Ok(&self.input[start_idx..self.offset]);
             }
 
