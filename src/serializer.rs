@@ -160,7 +160,10 @@ impl Serializer {
         match value {
             RefBareItem::Boolean(value) => Self::serialize_bool(*value, output)?,
             RefBareItem::String(value) => Self::serialize_string(value, output)?,
-            RefBareItem::ByteSeq(value) => Self::serialize_byte_sequence(value, output)?,
+            RefBareItem::ByteSeq(value) => {
+                let byte_seq = value.decode()?;
+                Self::serialize_byte_sequence(byte_seq.as_slice(), output)?
+            }
             RefBareItem::Token(value) => Self::serialize_token(value, output)?,
             RefBareItem::Integer(value) => Self::serialize_integer(*value, output)?,
             RefBareItem::Decimal(value) => Self::serialize_decimal(*value, output)?,

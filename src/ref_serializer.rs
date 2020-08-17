@@ -245,7 +245,7 @@ impl<'a> Container<'a> for RefDictSerializer<'a> {
 #[cfg(test)]
 mod alternative_serializer_tests {
     use super::*;
-    use crate::{Decimal, FromPrimitive};
+    use crate::{ByteSequence, Decimal, FromPrimitive};
 
     #[test]
     fn test_fast_serialize_item() -> SFVResult<()> {
@@ -296,8 +296,14 @@ mod alternative_serializer_tests {
             .close_inner_list()
             .bare_item_member("key6", &RefBareItem::String("foo"))?
             .open_inner_list("key7")?
-            .inner_list_bare_item(&RefBareItem::ByteSeq("some_string".as_bytes()))?
-            .inner_list_bare_item(&RefBareItem::ByteSeq("other_string".as_bytes()))?
+            .inner_list_bare_item(&RefBareItem::ByteSeq(ByteSequence::new(
+                b"some_string",
+                false,
+            )))?
+            .inner_list_bare_item(&RefBareItem::ByteSeq(ByteSequence::new(
+                b"other_string",
+                false,
+            )))?
             .close_inner_list()
             .parameter("lparam", &RefBareItem::Integer(10))?
             .bare_item_member("key8", &RefBareItem::Boolean(true))?;

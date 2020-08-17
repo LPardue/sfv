@@ -3,7 +3,7 @@ extern crate criterion;
 
 use criterion::{BenchmarkId, Criterion};
 use rust_decimal::prelude::FromPrimitive;
-use sfv::{BareItem, Decimal, Parser, SerializeValue};
+use sfv::{BareItem, ByteSequence, Decimal, Parser, SerializeValue};
 use sfv::{RefBareItem, RefDictSerializer, RefItemSerializer, RefListSerializer};
 
 criterion_main!(parsing, serializing, ref_serializing);
@@ -105,8 +105,11 @@ fn serializing_ref_item(c: &mut Criterion) {
             bench.iter(|| {
                 let mut output = String::new();
                 let ser = RefItemSerializer::new(&mut output);
-                ser.bare_item(&RefBareItem::ByteSeq(input.as_bytes()))
-                    .unwrap();
+                ser.bare_item(&RefBareItem::ByteSeq(ByteSequence::new(
+                    input.as_bytes(),
+                    false,
+                )))
+                .unwrap();
             });
         },
     );
@@ -136,7 +139,10 @@ fn serializing_ref_list(c: &mut Criterion) {
                 .unwrap()
                 .inner_list_parameter(
                     "key",
-                    &RefBareItem::ByteSeq("somever longstringvaluerepresentedasbytes".as_bytes()),
+                    &RefBareItem::ByteSeq(ByteSequence::new(
+                        b"somever longstringvaluerepresentedasbytes",
+                        false,
+                    )),
                 )
                 .unwrap()
                 .inner_list_bare_item(&RefBareItem::Integer(145))
@@ -161,7 +167,10 @@ fn serializing_ref_dict(c: &mut Criterion) {
                 .unwrap()
                 .inner_list_bare_item(&RefBareItem::String("inner-list-member"))
                 .unwrap()
-                .inner_list_bare_item(&RefBareItem::ByteSeq("inner-list-member".as_bytes()))
+                .inner_list_bare_item(&RefBareItem::ByteSeq(ByteSequence::new(
+                    b"inner-list-member",
+                    false,
+                )))
                 .unwrap()
                 .close_inner_list()
                 .parameter("key", &RefBareItem::Token("aW5uZXItbGlzdC1wYXJhbWV0ZXJz"))

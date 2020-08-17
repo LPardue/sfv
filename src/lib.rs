@@ -114,6 +114,7 @@ assert_eq!(
 */
 
 mod parser;
+mod ref_parser;
 mod ref_serializer;
 mod serializer;
 mod utils;
@@ -363,13 +364,36 @@ pub(crate) enum Num {
     Integer(i64),
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct ByteSequence<'a> {
+    pub value: &'a [u8],
+    pub encoded: bool,
+}
+
+impl<'a> ByteSequence<'a> {
+    pub fn new(value: &'a [u8], encoded: bool) -> Self {
+        ByteSequence { value, encoded }
+    }
+
+    pub fn decode(&self) -> SFVResult<Vec<u8>> {
+        if self.encoded {
+            match utils::base64()?.decode(self.value) {
+                Ok(content) => Ok(content),
+                Err(_) => Err("byte_seq_decode: decoding error"),
+            }
+        } else {
+            Ok(Vec::from(self.value))
+        }
+    }
+}
+
 /// Similar to `BareItem`, but used to serialize values via `RefItemSerializer`, `RefListSerializer`, `RefDictSerializer`.
 #[derive(Debug, PartialEq, Clone)]
 pub enum RefBareItem<'a> {
     Integer(i64),
     Decimal(Decimal),
     String(&'a str),
-    ByteSeq(&'a [u8]),
+    ByteSeq(ByteSequence<'a>),
     Boolean(bool),
     Token(&'a str),
 }
@@ -381,7 +405,7 @@ impl BareItem {
             BareItem::Integer(val) => RefBareItem::Integer(*val),
             BareItem::Decimal(val) => RefBareItem::Decimal(*val),
             BareItem::String(val) => RefBareItem::String(val),
-            BareItem::ByteSeq(val) => RefBareItem::ByteSeq(val.as_slice()),
+            BareItem::ByteSeq(val) => RefBareItem::ByteSeq(ByteSequence::new(val, false)),
             BareItem::Boolean(val) => RefBareItem::Boolean(*val),
             BareItem::Token(val) => RefBareItem::Token(val),
         }
