@@ -6,6 +6,7 @@ use std::str::{CharIndices, Chars};
 
 #[derive(Debug, PartialEq)]
 pub enum Token<'a> {
+    None,
     RefBareItem(RefBareItem<'a>),
     Parameter {
         key: &'a str,
@@ -50,7 +51,18 @@ impl<'a> ItemTokenizer<'a> {
                 self.state = State::Parameter;
                 Ok(Token::RefBareItem(result))
             }
-            // State::Parameter => self.parse_parameter()?,
+            State::Parameter => match self.tokenizer.chars.peek() {
+                Some(';') => {
+                    // parse paramenter and wrap into Token
+                    let (key, value) = self.tokenizer.parse_parameter()?;
+                    Ok(Token::Parameter { key, value })
+                }
+                _ => {
+                    self.state = State::Finish;
+                    self.tokenizer.finish()?;
+                    Ok(Token::None)
+                }
+            },
             _ => return Err("parse_item: invalid state"),
         }
     }
@@ -70,6 +82,10 @@ impl<'a> Tokenizer<'a> {
             offset: 0,
             chars: input.chars().peekable(),
         }
+    }
+
+    fn finish(&mut self) -> SFVResult<()> {
+        Ok(())
     }
 
     fn consume_sp_chars(&mut self) {
@@ -146,7 +162,7 @@ impl<'a> Tokenizer<'a> {
         let start_idx = self.offset;
         while let Some(ch) = self.take_char() {
             match ch {
-                '\"' => return Ok(&self.input[start_idx..(self.offset - ch.len_utf8())]), // do not include closing quote into string value
+                '\"' => return Ok(&self.input[start_idx..(self.offset - 1)]), // do not include closing quote into string value
                 '\x7f' | '\x00'..='\x1f' => return Err("parse_string: not a visible character"),
                 '\\' => match self.take_char() {
                     Some(c) if c == '\\' || c == '\"' => {
@@ -297,35 +313,30 @@ impl<'a> Tokenizer<'a> {
         Ok((is_integer, &self.input[start_idx..self.offset]))
     }
 
-    // fn parse_param(&mut self) -> SFVResult<Option<(&str, RefBareItem)>> {
-    //     // https://httpwg.org/http-extensions/draft-ietf-httpbis-header-structure.html#parse-param
-    //
-    //     // while let Some(curr_char) = self.chars.peek() {
-    //     if self.chars.peek() == &';' {
-    //         self.take_char();
-    //     } else {
-    //         return Ok(None);
-    //     }
-    //
-    //     self.consume_sp_chars();
-    //
-    //     let param_name = self.parse_key()?;
-    //     let param_value = match self.chars.peek() {
-    //         Some('=') => {
-    //             self.take_char();
-    //             self.parse_bare_item()?
-    //         }
-    //         _ => RefBareItem::Boolean(true),
-    //     };
-    //
-    //     //params.insert(param_name, param_value);
-    //
-    //     // If parameters already contains a name param_name (comparing character-for-character), overwrite its value.
-    //     // Note that when duplicate Parameter keys are encountered, this has the effect of ignoring all but the last instance.
-    //     // Ok(params)
-    // }
+    fn parse_parameter(&mut self) -> SFVResult<(&'a str, RefBareItem<'a>)> {
+        // https://httpwg.org/http-extensions/draft-ietf-httpbis-header-structure.html#parse-param
 
-    pub(crate) fn parse_key(&mut self) -> SFVResult<&str> {
+        if self.chars.peek() == Some(&';') {
+            self.take_char();
+        } else {
+            return Err("parse_parameter: not a parameter");
+        }
+
+        self.consume_sp_chars();
+
+        let param_name = self.parse_key()?;
+        let param_value = match self.chars.peek() {
+            Some('=') => {
+                self.take_char();
+                self.parse_bare_item()?
+            }
+            _ => RefBareItem::Boolean(true),
+        };
+
+        Ok((param_name, param_value))
+    }
+
+    pub(crate) fn parse_key(&mut self) -> SFVResult<&'a str> {
         match self.chars.peek() {
             Some(c) if c == &'*' || c.is_ascii_lowercase() => (),
             _ => return Err("parse_key: first character is not lcalpha or '*'"),
@@ -374,6 +385,14 @@ mod tokenizer_tests {
         assert_eq!(
             tokenizer.next()?,
             Token::RefBareItem(RefBareItem::Integer(4586))
+        );
+
+        assert_eq!(
+            tokenizer.next()?,
+            Token::Parameter {
+                key: "smth",
+                value: RefBareItem::Boolean(true)
+            }
         );
 
         let input = "4586.56;smth";
